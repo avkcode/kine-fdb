@@ -10,9 +10,13 @@ export KUBECONFIG=$PWD/output/kubeconfig.yaml
 kubectl get nodes
 ```
 
-This uses the released `ghcr.io/avkcode/kine-fdb` image; `docker compose up
--d --build` builds kine-fdb from this checkout instead, and `KINE_FDB_IMAGE`
-selects another image.
+This uses the released `ghcr.io/avkcode/kine-fdb` image; `KINE_FDB_IMAGE`
+selects another one. To run kine-fdb built from this checkout, give the build
+its own image name so that it does not replace the release tag locally:
+
+```bash
+KINE_FDB_IMAGE=kine-fdb:dev docker compose up -d --build
+```
 
 Inspect the namespace K3s writes to:
 

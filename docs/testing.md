@@ -45,11 +45,13 @@ Run them with the race detector too: `go test -race ./pkg/...`.
 
 `test/apiserver/run.sh` runs the `k8s.io/apiserver/pkg/storage/etcd3` test
 suite — the tests Kubernetes runs against etcd — against kine-fdb, the same
-way kine's CI does for its own backends. It checks out `k8s.io/apiserver` at
-the version kine is built against, replaces the embedded etcd test server
-with `test/apiserver/testserver` (which starts kine-fdb on a fresh namespace
-per test), and makes the two adjustments kine's CI makes for every kine
-backend. kine-fdb 0.1.0 passes all 509 tests of `k8s.io/apiserver` v0.37.0.
+way kine's CI does for its own backends. It checks out the `k8s.io/apiserver`
+release that `test/apiserver/go.mod` requires (Dependabot proposes newer
+ones, and CI runs the suite on them before they are merged), replaces the
+embedded etcd test server with `test/apiserver/testserver` (which starts
+kine-fdb on a fresh namespace per test), and makes the two adjustments kine's
+CI makes for every kine backend. kine-fdb 0.1.0 passes all 509 tests of
+`k8s.io/apiserver` v0.37.0.
 
 ```bash
 KINE_FDB_TEST_CLUSTER_FILE=/etc/foundationdb/fdb.cluster ./test/apiserver/run.sh
@@ -92,6 +94,35 @@ and checks that the replicas become ready and serve their namespace.
 ```bash
 KINE_FDB_IMAGE=kine-fdb:dev ./hack/e2e/tls-smoke.sh
 KINE_FDB_IMAGE=kine-fdb:dev ./hack/e2e/helm-smoke.sh
+```
+
+## Continuous integration
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull
+request. It installs FoundationDB on the runner and runs:
+
+- lint;
+- the unit, integration, race, and apiserver storage tests;
+- the fuzzers;
+- `helm lint`;
+- native amd64 and arm64 image builds.
+
+On amd64 it also runs the TLS and Helm smoke tests and a seven-minute K3s
+soak test, whose logs are kept as the `e2e-soak` artifact.
+
+`hack/ci/run-ci.sh` runs the same stages, with a ten-minute soak, on any
+host with Docker. It needs no bind mounts, so it also works on CI agents
+that use the host's Docker daemon. For Jenkins:
+
+- Controllers with Pipeline can use the `Jenkinsfile`.
+- `hack/ci/jenkins-job.sh` creates an equivalent freestyle job, which needs
+  only core Jenkins. It applies the job with the `jc` Jenkins CLI; with
+  `--print` it writes the job's XML for other tools instead.
+
+```bash
+JENKINS_LABEL=built-in ./hack/ci/jenkins-job.sh       # create or update the job
+jc job build kine-fdb -p KINE_FDB_BRANCH=devel --logs # build devel and follow it
+./hack/ci/jenkins-job.sh --print | java -jar jenkins-cli.jar -s "$JENKINS_URL" create-job kine-fdb
 ```
 
 ## Benchmarks

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Runs the Kubernetes apiserver etcd3 storage test suite against kine-fdb.
-# It checks out k8s.io/apiserver at the version kine is built against,
-# swaps the embedded etcd test server for test/apiserver/testserver, and
-# runs the suite against the cluster in KINE_FDB_TEST_CLUSTER_FILE.
+# It checks out the k8s.io/apiserver release that test/apiserver/go.mod
+# requires, swaps the embedded etcd test server for test/apiserver/testserver,
+# and runs the suite against the cluster in KINE_FDB_TEST_CLUSTER_FILE.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

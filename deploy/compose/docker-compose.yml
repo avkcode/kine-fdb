@@ -22,7 +22,8 @@ services:
       start_period: 5s
 
   kine-fdb:
-    # The released image; "docker compose up --build" builds this tree instead.
+    # The released image. To build this checkout instead, give the build its
+    # own name: KINE_FDB_IMAGE=kine-fdb:dev docker compose up -d --build
     image: ${KINE_FDB_IMAGE:-ghcr.io/avkcode/kine-fdb:0.1.0}
     pull_policy: missing
     build:

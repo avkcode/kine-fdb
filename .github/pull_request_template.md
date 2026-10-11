@@ -1,3 +1,5 @@
+<!-- Pull requests go to the devel branch. -->
+
 **What this changes and why**
 
 **How it was tested**

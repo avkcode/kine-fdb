@@ -1,5 +1,6 @@
 # Release on v* tags: linux binaries for amd64 and arm64, a multi-arch image
 # and the Helm chart on GHCR, and a GitHub release with the changelog entry.
+# See docs/releasing.md.
 name: Release
 
 on:
@@ -14,8 +15,18 @@ env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/kine-fdb
 
 jobs:
+  check:
+    name: Check the tag
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - run: ./hack/release/check.sh "${GITHUB_REF_NAME}"
+
   build:
     name: Build (${{ matrix.arch }})
+    needs: check
     strategy:
       matrix:
         include:
@@ -116,11 +127,14 @@ jobs:
       - name: Checksums and release notes
         run: |
           cd dist && sha256sum *.tar.gz *.tgz > SHA256SUMS && cd ..
-          version=${GITHUB_REF_NAME#v}
-          awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## \[/ {on=0} on' CHANGELOG.md > dist/NOTES.md
+          section() { awk -v v="$1" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## \[/ {on=0} on' CHANGELOG.md; }
+          section "${GITHUB_REF_NAME#v}" > dist/NOTES.md
+          # Pre-releases have no section of their own yet.
+          [[ -s dist/NOTES.md ]] || section Unreleased > dist/NOTES.md
       - uses: softprops/action-gh-release@v3
         with:
           body_path: dist/NOTES.md
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             dist/*.tar.gz
             dist/*.tgz

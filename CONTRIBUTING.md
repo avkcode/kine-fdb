@@ -41,11 +41,39 @@ On a machine with the FoundationDB client installed you can also run
 - Write commit messages in the imperative mood ("Fix watch catch-up after
   compaction") with a body explaining why when it is not obvious.
 
-## Pull requests
+## Branches and pull requests
 
-CI runs the lint, unit, integration, race, apiserver, Helm, and image
-builds. A maintainer reviews every pull request; please keep the
-conversation in the pull request so others can follow it.
+`devel` is the integration branch: base your work on it and open pull
+requests against it. `main` only moves forward to `devel` commits that
+have passed CI, and releases are tagged on `main`.
+
+CI runs on every pull request:
+
+- lint;
+- the unit, integration, race, and apiserver tests;
+- the Helm chart checks;
+- the image builds;
+- the TLS, Helm, and K3s end-to-end tests.
+
+A maintainer reviews every pull request. Please keep the conversation in
+the pull request so that others can follow it. Add user-visible changes
+under "Unreleased" in [CHANGELOG.md](CHANGELOG.md).
+
+## Dependencies
+
+Dependabot proposes weekly updates against `devel` for Go modules, GitHub
+Actions, and base images. CI exercises each one before it is merged.
+
+FoundationDB itself is updated by hand. Update every place that names the
+version together; `git grep -n 7.3.77` lists them. Keep the Go bindings
+(`github.com/apple/foundationdb/bindings/go`) on the matching FoundationDB
+release branch. Dependabot is told to leave them alone. A new FoundationDB
+minor version also means reviewing the API version (`DefaultAPIVersion`).
+
+## Releases
+
+Maintainers cut releases from `main`; see
+[docs/releasing.md](docs/releasing.md).
 
 By contributing you agree that your contributions are licensed under the
 Apache License 2.0.

@@ -5,11 +5,17 @@
 # Pipeline can use the Jenkinsfile instead.
 #
 #   KINE_FDB_REPO=https://github.com/avkcode/kine-fdb.git hack/ci/jenkins-job.sh [job-name]
+#   hack/ci/jenkins-job.sh --print    # write the job XML to stdout instead
 #
 # JENKINS_LABEL pins the job to agents with that label (for example
 # built-in); the agent needs git, bash, and access to a Docker daemon.
 set -euo pipefail
 
+print=0
+if [[ "${1:-}" == "--print" ]]; then
+  print=1
+  shift
+fi
 job="${1:-kine-fdb}"
 repo="${KINE_FDB_REPO:-https://github.com/avkcode/kine-fdb.git}"
 branch="${KINE_FDB_BRANCH:-devel}"
@@ -85,4 +91,8 @@ $(if [[ -n "${label}" ]]; then printf '  <assignedNode>%s</assignedNode>\n  <can
 </project>
 XML
 
-jc job apply "${job}" -f "${config}"
+if [[ "${print}" == 1 ]]; then
+  cat "${config}"
+else
+  jc job apply "${job}" -f "${config}"
+fi

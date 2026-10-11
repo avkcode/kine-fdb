@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The Docker Compose quick start runs the released image instead of
+  building one; set `KINE_FDB_IMAGE` to run another build.
+- `kine-fdb --version` shows the commit as a 12-character hash in every
+  build.
+
 ## [0.1.0] - 2026-10-11
 
 First public release.
@@ -29,4 +38,5 @@ First public release.
 - Tests: unit and fuzz tests, FoundationDB integration tests, the Kubernetes
   apiserver storage test suite, and a K3s end-to-end soak test.
 
+[Unreleased]: https://github.com/avkcode/kine-fdb/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/avkcode/kine-fdb/releases/tag/v0.1.0
