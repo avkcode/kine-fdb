@@ -23,12 +23,11 @@ var (
 // example "v0.1.0 (0123456789ab, kine v0.17.2)". Missing parts are taken
 // from the module build information when available.
 func String() string {
-	commit := Commit
-	kine := ""
+	commit, kine := Commit, ""
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, s := range info.Settings {
-			if s.Key == "vcs.revision" && commit == "" && len(s.Value) >= 12 {
-				commit = s.Value[:12]
+			if s.Key == "vcs.revision" && commit == "" {
+				commit = s.Value
 			}
 		}
 		for _, dep := range info.Deps {
@@ -37,14 +36,14 @@ func String() string {
 			}
 		}
 	}
+	if len(commit) > 12 {
+		commit = commit[:12]
+	}
 	var details []string
 	for _, d := range []string{commit, kine} {
 		if d != "" {
 			details = append(details, d)
 		}
-	}
-	if len(details) > 0 && len(details[0]) > 12 && details[0] == commit {
-		details[0] = commit[:12]
 	}
 	if len(details) == 0 {
 		return Version
