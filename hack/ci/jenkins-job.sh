@@ -5,12 +5,16 @@
 # Pipeline can use the Jenkinsfile instead.
 #
 #   KINE_FDB_REPO=https://github.com/avkcode/kine-fdb.git hack/ci/jenkins-job.sh [job-name]
+#
+# JENKINS_LABEL pins the job to agents with that label (for example
+# built-in); the agent needs git, bash, and access to a Docker daemon.
 set -euo pipefail
 
 job="${1:-kine-fdb}"
 repo="${KINE_FDB_REPO:-https://github.com/avkcode/kine-fdb.git}"
 branch="${KINE_FDB_BRANCH:-devel}"
 soak="${SOAK_SECONDS:-600}"
+label="${JENKINS_LABEL:-}"
 
 xml_escape() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'; }
 
@@ -54,7 +58,7 @@ cat >"${config}" <<XML
     </hudson.model.ParametersDefinitionProperty>
   </properties>
   <scm class="hudson.scm.NullSCM"/>
-  <canRoam>true</canRoam>
+$(if [[ -n "${label}" ]]; then printf '  <assignedNode>%s</assignedNode>\n  <canRoam>false</canRoam>' "$(printf '%s' "${label}" | xml_escape)"; else printf '  <canRoam>true</canRoam>'; fi)
   <disabled>false</disabled>
   <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
   <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
