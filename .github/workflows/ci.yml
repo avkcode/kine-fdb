@@ -87,6 +87,18 @@ jobs:
         run: |
           docker run --rm kine-fdb:ci --version
           docker run --rm --entrypoint kine-fdb-admin kine-fdb:ci --version
+      - name: TLS smoke test
+        if: matrix.arch == 'amd64'
+        env:
+          KINE_FDB_IMAGE: kine-fdb:ci
+        run: ./hack/e2e/tls-smoke.sh
+      - uses: azure/setup-helm@v5
+        if: matrix.arch == 'amd64'
+      - name: Helm smoke test
+        if: matrix.arch == 'amd64'
+        env:
+          KINE_FDB_IMAGE: kine-fdb:ci
+        run: ./hack/e2e/helm-smoke.sh
       - name: K3s soak test
         if: matrix.arch == 'amd64'
         env:

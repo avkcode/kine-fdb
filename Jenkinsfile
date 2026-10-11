@@ -21,7 +21,7 @@ node {
                 git -C src log -1 --oneline
             """
         }
-        for (s in ['env', 'lint', 'test', 'apiserver', 'image', 'soak']) {
+        for (s in ['env', 'lint', 'test', 'apiserver', 'image', 'tls', 'soak']) {
             stage(s) {
                 sh "cd src && ./hack/ci/run-ci.sh ${s}"
             }

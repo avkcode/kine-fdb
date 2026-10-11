@@ -5,7 +5,7 @@
 # CI agents that talk to the host's Docker daemon (for example Jenkins in a
 # container). Used by the Jenkinsfile and the Jenkins freestyle job.
 #
-#   hack/ci/run-ci.sh [all|env|lint|test|apiserver|image|soak|cleanup]...
+#   hack/ci/run-ci.sh [all|env|lint|test|apiserver|image|tls|soak|cleanup]...
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -45,6 +45,14 @@ run_stage() {
         --build-arg COMMIT="$(git rev-parse --short=12 HEAD 2>/dev/null || true)" -t "${image}" .
       docker run --rm "${image}" --version
       ;;
+    tls)
+      if ! command -v openssl >/dev/null; then
+        echo "TLS smoke test skipped: openssl is not installed"
+        return 0
+      fi
+      step "TLS smoke test"
+      KINE_FDB_IMAGE="${image}" E2E_ID="${id}" E2E_OUT="${repo_root}/_output/tls" ./hack/e2e/tls-smoke.sh
+      ;;
     soak)
       if [[ "${soak}" == "0" ]]; then
         echo "soak test skipped"
@@ -61,7 +69,7 @@ run_stage() {
       ;;
     all)
       trap 'run_stage cleanup' EXIT
-      for s in env lint test apiserver image soak; do
+      for s in env lint test apiserver image tls soak; do
         run_stage "${s}"
       done
       ;;
