@@ -12,6 +12,10 @@ updates:
       # The bindings must come from the FoundationDB release line the
       # project targets (FDB_VERSION) and are updated together with it.
       - dependency-name: github.com/apple/foundationdb/bindings/go
+      # kine carries a stray v1.14.2 tag from long before its 0.x releases;
+      # Go tooling treats it as the latest version.
+      - dependency-name: github.com/k3s-io/kine
+        versions: [">= 1.0.0"]
     groups:
       go:
         patterns: ["*"]
