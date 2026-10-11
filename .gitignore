@@ -1,0 +1,23 @@
+# Build and test outputs
+/bin/
+/dist/
+/_output/
+*.test
+*.out
+coverage*.txt
+coverage*.html
+
+# Local, host-specific settings (see .env.example)
+.env
+.env.*
+!.env.example
+
+# Editor and OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Docker Compose quick start output (kubeconfig)
+/deploy/compose/output/
