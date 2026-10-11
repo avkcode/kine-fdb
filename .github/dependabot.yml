@@ -1,18 +1,27 @@
 # Weekly dependency updates for Go modules, GitHub Actions, and base images.
+# Updates target devel, where changes are integrated and tested before they
+# are merged into main.
 version: 2
 updates:
   - package-ecosystem: gomod
     directories: ["/", "/test/apiserver"]
+    target-branch: devel
     schedule:
       interval: weekly
+    ignore:
+      # The bindings must come from the FoundationDB release line the
+      # project targets (FDB_VERSION) and are updated together with it.
+      - dependency-name: github.com/apple/foundationdb/bindings/go
     groups:
       go:
         patterns: ["*"]
   - package-ecosystem: github-actions
     directory: /
+    target-branch: devel
     schedule:
       interval: weekly
   - package-ecosystem: docker
     directories: ["/", "/hack/dev"]
+    target-branch: devel
     schedule:
       interval: weekly
