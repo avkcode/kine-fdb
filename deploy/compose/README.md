@@ -5,10 +5,14 @@ datastore is kine-fdb. It is meant for trying kine-fdb out; the FoundationDB
 here keeps one copy of the data.
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 export KUBECONFIG=$PWD/output/kubeconfig.yaml
 kubectl get nodes
 ```
+
+This uses the released `ghcr.io/avkcode/kine-fdb` image; `docker compose up
+-d --build` builds kine-fdb from this checkout instead, and `KINE_FDB_IMAGE`
+selects another image.
 
 Inspect the namespace K3s writes to:
 

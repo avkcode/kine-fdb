@@ -43,6 +43,9 @@ func String() string {
 			details = append(details, d)
 		}
 	}
+	if len(details) > 0 && len(details[0]) > 12 && details[0] == commit {
+		details[0] = commit[:12]
+	}
 	if len(details) == 0 {
 		return Version
 	}

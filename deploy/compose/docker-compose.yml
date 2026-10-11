@@ -2,7 +2,7 @@
 # stores its state through kine-fdb. For evaluation only: the FoundationDB
 # here has no redundancy.
 #
-#   docker compose up -d --build
+#   docker compose up -d          # released image (add --build to build this tree)
 #   export KUBECONFIG=$PWD/output/kubeconfig.yaml && kubectl get nodes
 name: kine-fdb
 
@@ -22,11 +22,13 @@ services:
       start_period: 5s
 
   kine-fdb:
+    # The released image; "docker compose up --build" builds this tree instead.
+    image: ${KINE_FDB_IMAGE:-ghcr.io/avkcode/kine-fdb:0.1.0}
+    pull_policy: missing
     build:
       context: ../..
       args:
         FDB_VERSION: ${FDB_VERSION:-7.3.77}
-    image: kine-fdb:local
     depends_on:
       fdb:
         condition: service_healthy

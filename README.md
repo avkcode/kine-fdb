@@ -1,6 +1,7 @@
 # kine-fdb
 
 [![CI](https://github.com/avkcode/kine-fdb/actions/workflows/ci.yml/badge.svg)](https://github.com/avkcode/kine-fdb/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/avkcode/kine-fdb)](https://github.com/avkcode/kine-fdb/releases)
 [![Go Reference](https://pkg.go.dev/badge/github.com/avkcode/kine-fdb.svg)](https://pkg.go.dev/github.com/avkcode/kine-fdb/pkg/fdbdriver)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
@@ -61,7 +62,7 @@ stores its state through kine-fdb:
 
 ```bash
 git clone https://github.com/avkcode/kine-fdb && cd kine-fdb/deploy/compose
-docker compose up -d --build
+docker compose up -d                # add --build to build kine-fdb from this tree
 export KUBECONFIG=$PWD/output/kubeconfig.yaml
 kubectl get nodes
 ```

@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Installs the Helm chart into a throwaway K3s cluster running in Docker,
-# with the evaluation FoundationDB and a locally built image, and checks that
-# kine-fdb becomes ready and serves its namespace. Requires Docker and helm.
+# with the evaluation FoundationDB, and checks that kine-fdb becomes ready
+# and serves its namespace. By default it uses the chart in this tree and a
+# locally built image; HELM_CHART and IMPORT_IMAGES=0 test published
+# artifacts instead. Requires Docker and helm.
 #
 #   KINE_FDB_IMAGE=kine-fdb:dev ./hack/e2e/helm-smoke.sh
+#   HELM_CHART=oci://ghcr.io/avkcode/charts/kine-fdb HELM_CHART_VERSION=0.1.0 \
+#     KINE_FDB_IMAGE=ghcr.io/avkcode/kine-fdb:0.1.0 IMPORT_IMAGES=0 ./hack/e2e/helm-smoke.sh
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -11,6 +15,9 @@ id="${E2E_ID:-$(date +%s)}"
 image="${KINE_FDB_IMAGE:-kine-fdb:e2e}"
 k3s_image="${K3S_IMAGE:-rancher/k3s:v1.37.1-k3s1}"
 fdb_image="${FDB_IMAGE:-foundationdb/foundationdb:7.3.77}"
+chart="${HELM_CHART:-${repo}/charts/kine-fdb}"
+chart_version="${HELM_CHART_VERSION:-}"
+import_images="${IMPORT_IMAGES:-1}"
 net="kinefdb-helm-${id}"
 k3s="kinefdb-helm-k3s-${id}"
 out="${E2E_OUT:-${repo}/_output/helm-${id}}"
@@ -47,15 +54,23 @@ ip="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}
 docker exec "${k3s}" cat /etc/rancher/k3s/k3s.yaml | sed "s/127.0.0.1/${ip}/" >"${out}/kubeconfig.yaml"
 export KUBECONFIG="${out}/kubeconfig.yaml"
 
-log "importing ${image} and ${fdb_image} into K3s"
-docker image inspect "${fdb_image}" >/dev/null 2>&1 || docker pull -q "${fdb_image}" >/dev/null
-docker save "${image}" "${fdb_image}" | docker exec -i "${k3s}" ctr images import - >/dev/null
+pull_policy=IfNotPresent
+if [[ "${import_images}" == "1" ]]; then
+  log "importing ${image} and ${fdb_image} into K3s"
+  docker image inspect "${fdb_image}" >/dev/null 2>&1 || docker pull -q "${fdb_image}" >/dev/null
+  docker save "${image}" "${fdb_image}" | docker exec -i "${k3s}" ctr images import - >/dev/null
+  pull_policy=Never
+fi
 
 repository="${image%:*}"
 tag="${image##*:}"
-log "installing the chart"
-helm install smoke "${repo}/charts/kine-fdb" --namespace kine-fdb --create-namespace \
-  --set image.repository="${repository}" --set image.tag="${tag}" --set image.pullPolicy=Never \
+version_args=()
+if [[ -n "${chart_version}" ]]; then
+  version_args=(--version "${chart_version}")
+fi
+log "installing ${chart} ${chart_version}"
+helm install smoke "${chart}" "${version_args[@]}" --namespace kine-fdb --create-namespace \
+  --set image.repository="${repository}" --set image.tag="${tag}" --set image.pullPolicy="${pull_policy}" \
   --set fdb.dev.enabled=true --set fdb.dev.image="${fdb_image}" --set fdb.dev.persistence.enabled=false \
   --set fdb.namespace=/helm-smoke/ \
   --wait --timeout 6m
