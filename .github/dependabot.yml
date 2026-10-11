@@ -1,0 +1,18 @@
+# Weekly dependency updates for Go modules, GitHub Actions, and base images.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directories: ["/", "/test/apiserver"]
+    schedule:
+      interval: weekly
+    groups:
+      go:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directories: ["/", "/hack/dev"]
+    schedule:
+      interval: weekly

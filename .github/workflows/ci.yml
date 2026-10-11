@@ -1,0 +1,103 @@
+# Continuous integration: lint, unit/integration/race tests and the Kubernetes
+# apiserver storage tests against a real FoundationDB, Helm chart checks,
+# native amd64 and arm64 image builds, and a K3s end-to-end soak test.
+name: CI
+
+on:
+  push:
+    branches: [main, devel]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FDB_VERSION: "7.3.77"
+
+jobs:
+  test:
+    name: Lint and test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      KINE_FDB_TEST_CLUSTER_FILE: /etc/foundationdb/fdb.cluster
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            test/apiserver/go.sum
+      - name: Install FoundationDB
+        run: ./hack/ci/install-fdb.sh
+      - name: Lint
+        run: make lint
+      - name: Unit, integration, and race tests
+        run: go test -race -count=1 -timeout 30m ./...
+      - name: Kubernetes apiserver storage tests
+        run: ./test/apiserver/run.sh
+      - name: Fuzz the record decoders
+        run: |
+          go test -run XXX -fuzz FuzzDecodeEntry -fuzztime 30s ./internal/record
+          go test -run XXX -fuzz FuzzDecodeIndex -fuzztime 30s ./internal/record
+          go test -run XXX -fuzz FuzzDecodeLog -fuzztime 30s ./internal/record
+
+  helm:
+    name: Helm chart
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+      - run: make helm-lint
+
+  image:
+    name: Image (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: kine-fdb:ci
+          build-args: |
+            FDB_VERSION=${{ env.FDB_VERSION }}
+            VERSION=ci-${{ github.sha }}
+            COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=image-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=image-${{ matrix.arch }}
+      - name: Smoke test
+        run: |
+          docker run --rm kine-fdb:ci --version
+          docker run --rm --entrypoint kine-fdb-admin kine-fdb:ci --version
+      - name: K3s soak test
+        if: matrix.arch == 'amd64'
+        env:
+          KINE_FDB_IMAGE: kine-fdb:ci
+          SOAK_SECONDS: "420"
+          E2E_OUT: ${{ github.workspace }}/_output/e2e
+        run: ./hack/e2e/k3s-soak.sh
+      - name: Upload soak results
+        if: always() && matrix.arch == 'amd64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-soak
+          path: _output/e2e
+          if-no-files-found: ignore
