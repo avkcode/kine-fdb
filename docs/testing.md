@@ -81,6 +81,19 @@ Logs, statistics, and the verification report are written to
 `_output/e2e-<id>/`. `KINE_ENDPOINT` and `E2E_ADMIN=0` let other kine builds
 run through the same scenario for comparison.
 
+## TLS and Helm smoke tests
+
+`hack/e2e/tls-smoke.sh` starts a TLS-only FoundationDB with a throwaway CA and
+requires kine-fdb to serve reads and writes with the endpoint's `tls_*`
+parameters, and to stay unready without them. `hack/e2e/helm-smoke.sh`
+installs the Helm chart with its evaluation FoundationDB into a throwaway K3s
+and checks that the replicas become ready and serve their namespace.
+
+```bash
+KINE_FDB_IMAGE=kine-fdb:dev ./hack/e2e/tls-smoke.sh
+KINE_FDB_IMAGE=kine-fdb:dev ./hack/e2e/helm-smoke.sh
+```
+
 ## Benchmarks
 
 ```bash

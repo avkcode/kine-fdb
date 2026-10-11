@@ -26,10 +26,9 @@ RUN set -eux; \
 
 WORKDIR /src
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod go mod download
+RUN go mod download
 COPY . .
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    set -eux; \
+RUN set -eux; \
     ldflags="-s -w -X github.com/avkcode/kine-fdb/pkg/version.Version=${VERSION} -X github.com/avkcode/kine-fdb/pkg/version.Commit=${COMMIT}"; \
     CGO_ENABLED=1 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/kine-fdb ./cmd/kine-fdb; \
     CGO_ENABLED=1 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/kine-fdb-admin ./cmd/kine-fdb-admin; \
