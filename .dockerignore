@@ -1,0 +1,13 @@
+# Keep the image build context small and free of local settings.
+.git
+.github
+.env
+.env.*
+bin
+dist
+_output
+charts
+deploy
+docs
+*.test
+coverage*

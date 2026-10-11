@@ -1,0 +1,77 @@
+# Quick start: a single-process FoundationDB, kine-fdb, and a K3s server that
+# stores its state through kine-fdb. For evaluation only: the FoundationDB
+# here has no redundancy.
+#
+#   docker compose up -d --build
+#   export KUBECONFIG=$PWD/output/kubeconfig.yaml && kubectl get nodes
+name: kine-fdb
+
+services:
+  fdb:
+    image: foundationdb/foundationdb:${FDB_VERSION:-7.3.77}
+    environment:
+      FDB_NETWORKING_MODE: container
+      FDB_CLUSTER_FILE_CONTENTS: docker:docker@fdb:4500
+    volumes:
+      - fdb-data:/var/fdb/data
+    healthcheck:
+      test: ["CMD-SHELL", "fdbcli --timeout 5 --exec 'status minimal' | grep -q available || { fdbcli --timeout 5 --exec 'configure new single ssd' >/dev/null 2>&1; exit 1; }"]
+      interval: 5s
+      timeout: 15s
+      retries: 30
+      start_period: 5s
+
+  kine-fdb:
+    build:
+      context: ../..
+      args:
+        FDB_VERSION: ${FDB_VERSION:-7.3.77}
+    image: kine-fdb:local
+    depends_on:
+      fdb:
+        condition: service_healthy
+    command:
+      - --endpoint=fdb:///etc/foundationdb/fdb.cluster?namespace=/quickstart/
+      - --listen-address=0.0.0.0:2379
+      - --metrics-bind-address=0.0.0.0:8080
+    configs:
+      - source: cluster-file
+        target: /etc/foundationdb/fdb.cluster
+        mode: 0644
+    ports:
+      - "127.0.0.1:${KINE_PORT:-2379}:2379"
+      - "127.0.0.1:${METRICS_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081 && printf 'GET /readyz HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  k3s:
+    image: rancher/k3s:${K3S_VERSION:-v1.37.1-k3s1}
+    privileged: true
+    depends_on:
+      kine-fdb:
+        condition: service_healthy
+    command:
+      - server
+      - --datastore-endpoint=http://kine-fdb:2379
+      - --disable=traefik,servicelb,metrics-server
+      - --tls-san=127.0.0.1
+    environment:
+      K3S_KUBECONFIG_OUTPUT: /output/kubeconfig.yaml
+      K3S_KUBECONFIG_MODE: "644"
+    tmpfs:
+      - /run
+      - /var/run
+    ports:
+      - "127.0.0.1:${K3S_PORT:-6443}:6443"
+    volumes:
+      - ./output:/output
+
+configs:
+  cluster-file:
+    content: docker:docker@fdb:4500
+
+volumes:
+  fdb-data:

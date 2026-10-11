@@ -1,0 +1,14 @@
+{{/* Keeps kine-fdb available during voluntary disruptions. */}}
+{{- if and .Values.podDisruptionBudget.enabled (gt (int .Values.replicaCount) 1) }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "kine-fdb.fullname" . }}
+  labels:
+    {{- include "kine-fdb.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+  selector:
+    matchLabels:
+      {{- include "kine-fdb.selectorLabels" . | nindent 6 }}
+{{- end }}

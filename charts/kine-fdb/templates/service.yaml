@@ -1,0 +1,22 @@
+{{/* Service exposing the etcd API (for kube-apiserver / K3s) and metrics. */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kine-fdb.fullname" . }}
+  labels:
+    {{- include "kine-fdb.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "kine-fdb.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: etcd
+      port: {{ .Values.kine.port }}
+      targetPort: etcd
+    - name: metrics
+      port: {{ .Values.kine.metricsPort }}
+      targetPort: metrics

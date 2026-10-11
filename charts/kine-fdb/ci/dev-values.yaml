@@ -1,0 +1,7 @@
+# chart-testing values: evaluation FoundationDB inside the release.
+replicaCount: 1
+fdb:
+  dev:
+    enabled: true
+    persistence:
+      enabled: false

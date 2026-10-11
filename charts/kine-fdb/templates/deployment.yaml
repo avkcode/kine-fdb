@@ -1,0 +1,173 @@
+{{/* kine-fdb Deployment: the etcd v3 API backed by FoundationDB. */}}
+{{- $source := include "kine-fdb.clusterFileSource" . | fromYaml }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kine-fdb.fullname" . }}
+  labels:
+    {{- include "kine-fdb.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      {{- include "kine-fdb.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kine-fdb.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "kine-fdb.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        # FoundationDB clients rewrite the cluster file when coordinators
+        # change, so they need a writable copy rather than the ConfigMap.
+        - name: cluster-file
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/cp", "/etc/foundationdb-source/{{ include "kine-fdb.clusterFileKey" . }}", "/etc/foundationdb/fdb.cluster"]
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: cluster-file-source
+              mountPath: /etc/foundationdb-source
+              readOnly: true
+            - name: foundationdb
+              mountPath: /etc/foundationdb
+      containers:
+        - name: kine-fdb
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --endpoint={{ include "kine-fdb.endpoint" . }}
+            - --listen-address=0.0.0.0:{{ .Values.kine.port }}
+            - --metrics-bind-address=0.0.0.0:{{ .Values.kine.metricsPort }}
+            - --health-bind-address=0.0.0.0:{{ .Values.kine.healthPort }}
+            - --compact-interval={{ .Values.kine.compactInterval }}
+            - --compact-min-retain={{ .Values.kine.compactMinRetain }}
+            - --watch-progress-notify-interval={{ .Values.kine.watchProgressNotifyInterval }}
+            - --log-format={{ .Values.kine.logFormat }}
+            {{- if .Values.kine.debug }}
+            - --debug
+            {{- end }}
+            {{- if .Values.kine.serverTLS.enabled }}
+            - --server-cert-file=/etc/kine/tls/tls.crt
+            - --server-key-file=/etc/kine/tls/tls.key
+            - --trusted-ca-file=/etc/kine/tls/ca.crt
+            {{- end }}
+            {{- range .Values.kine.extraArgs }}
+            - {{ . }}
+            {{- end }}
+          env:
+            - name: FDB_CLUSTER_FILE
+              value: /etc/foundationdb/fdb.cluster
+            {{- with .Values.kine.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: etcd
+              containerPort: {{ .Values.kine.port }}
+            - name: metrics
+              containerPort: {{ .Values.kine.metricsPort }}
+            - name: health
+              containerPort: {{ .Values.kine.healthPort }}
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            periodSeconds: 2
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            periodSeconds: 5
+            timeoutSeconds: 4
+            failureThreshold: 2
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: foundationdb
+              mountPath: /etc/foundationdb
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.fdb.tls.enabled }}
+            - name: fdb-tls
+              mountPath: /etc/foundationdb/tls
+              readOnly: true
+            {{- end }}
+            {{- if .Values.kine.serverTLS.enabled }}
+            - name: server-tls
+              mountPath: /etc/kine/tls
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: cluster-file-source
+          {{- if $source.secret }}
+          secret:
+            secretName: {{ $source.secret }}
+          {{- else }}
+          configMap:
+            name: {{ $source.configMap }}
+          {{- end }}
+        - name: foundationdb
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.fdb.tls.enabled }}
+        - name: fdb-tls
+          secret:
+            secretName: {{ required "fdb.tls.secretName is required when fdb.tls.enabled" .Values.fdb.tls.secretName }}
+        {{- end }}
+        {{- if .Values.kine.serverTLS.enabled }}
+        - name: server-tls
+          secret:
+            secretName: {{ required "kine.serverTLS.secretName is required when kine.serverTLS.enabled" .Values.kine.serverTLS.secretName }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      topologySpreadConstraints:
+        {{- if .Values.topologySpreadConstraints }}
+        {{- toYaml .Values.topologySpreadConstraints | nindent 8 }}
+        {{- else }}
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "kine-fdb.selectorLabels" . | nindent 14 }}
+        {{- end }}

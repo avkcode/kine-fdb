@@ -1,0 +1,132 @@
+# Default values for the kine-fdb chart.
+
+# -- Number of kine-fdb replicas. Every replica serves the same namespace;
+# FoundationDB keeps them consistent, so any replica can take any request.
+replicaCount: 2
+
+image:
+  repository: ghcr.io/avkcode/kine-fdb
+  # -- Defaults to the chart appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+fdb:
+  # -- Namespace (independent etcd keyspace) inside FoundationDB. Use one per
+  # Kubernetes control plane when several share a FoundationDB cluster.
+  namespace: /kine/
+  clusterFile:
+    # -- Existing ConfigMap holding the cluster file, for example the
+    # "<cluster>-config" ConfigMap created by fdb-kubernetes-operator.
+    configMap: ""
+    # -- Existing Secret holding the cluster file (alternative to configMap).
+    secret: ""
+    # -- Key of the cluster file in the ConfigMap or Secret.
+    key: cluster-file
+    # -- Cluster file contents; creates a ConfigMap when no existing
+    # ConfigMap or Secret is named. Example: "kine:abc123@10.0.0.5:4500"
+    value: ""
+  # -- Extra endpoint parameters, for example {timeout: 10s, api_version: 730}.
+  params: {}
+  tls:
+    # -- Use TLS to reach FoundationDB.
+    enabled: false
+    # -- Secret with tls.crt, tls.key, and ca.crt for the FoundationDB client.
+    secretName: ""
+    # -- FoundationDB peer verification string (tls_verify_peers).
+    verifyPeers: ""
+
+  # A single-process FoundationDB for evaluation and CI. It has no
+  # redundancy and is not suitable for production; run FoundationDB with
+  # fdb-kubernetes-operator or on dedicated hosts instead.
+  dev:
+    enabled: false
+    image: foundationdb/foundationdb:7.3.77
+    # -- Storage engine for "configure new single <engine>".
+    storageEngine: ssd
+    persistence:
+      enabled: true
+      size: 8Gi
+      storageClass: ""
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        memory: 2Gi
+
+kine:
+  # -- Port serving the etcd v3 API.
+  port: 2379
+  # -- Port serving Prometheus metrics.
+  metricsPort: 8080
+  # -- Port serving /healthz and /readyz.
+  healthPort: 8081
+  # -- Interval of automatic compaction; 0 disables it.
+  compactInterval: 5m
+  # -- Newest revisions never compacted.
+  compactMinRetain: 1000
+  watchProgressNotifyInterval: 5s
+  # -- plain or json.
+  logFormat: json
+  debug: false
+  # TLS for clients of the etcd API (kube-apiserver, K3s).
+  serverTLS:
+    enabled: false
+    # -- Secret with tls.crt and tls.key, and ca.crt to require client certificates.
+    secretName: ""
+  # -- Additional kine-fdb flags.
+  extraArgs: []
+  extraEnv: []
+
+service:
+  type: ClusterIP
+  annotations: {}
+
+serviceMonitor:
+  # -- Create a Prometheus Operator ServiceMonitor.
+  enabled: false
+  interval: 30s
+  labels: {}
+
+podDisruptionBudget:
+  enabled: true
+  maxUnavailable: 1
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+podAnnotations: {}
+podLabels: {}
+priorityClassName: ""
+nodeSelector: {}
+tolerations: []
+affinity: {}
+# -- Defaults to spreading replicas across nodes when empty.
+topologySpreadConstraints: []

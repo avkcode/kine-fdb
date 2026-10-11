@@ -1,0 +1,17 @@
+{{/* Notes shown after helm install and helm status. */ -}}
+kine-fdb is serving the etcd v3 API for FoundationDB namespace {{ .Values.fdb.namespace }} at:
+
+  http{{ if .Values.kine.serverTLS.enabled }}s{{ end }}://{{ include "kine-fdb.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.kine.port }}
+
+Point a control plane at it, for example:
+
+  k3s server --datastore-endpoint=http{{ if .Values.kine.serverTLS.enabled }}s{{ end }}://{{ include "kine-fdb.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.kine.port }}
+
+Inspect the namespace with:
+
+  kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "kine-fdb.fullname" . }} -- kine-fdb-admin --endpoint '{{ include "kine-fdb.endpoint" . }}' stats
+{{- if .Values.fdb.dev.enabled }}
+
+WARNING: fdb.dev.enabled runs a single FoundationDB process with no redundancy.
+Use it for evaluation only.
+{{- end }}

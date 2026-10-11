@@ -1,0 +1,103 @@
+{{/*
+Single-process FoundationDB for evaluation (fdb.dev.enabled). It has no
+redundancy: losing the pod or its volume loses the data.
+*/}}
+{{- if .Values.fdb.dev.enabled }}
+{{- $name := include "kine-fdb.devFdbName" . }}
+{{- $clusterFile := printf "kine:dev@%s-0.%s.%s.svc.cluster.local:4500" $name $name .Release.Namespace }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "kine-fdb.fdbLabels" . | nindent 4 }}
+data:
+  cluster-file: {{ $clusterFile | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "kine-fdb.fdbLabels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "kine-fdb.fdbSelectorLabels" . | nindent 4 }}
+  ports:
+    - name: fdb
+      port: 4500
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "kine-fdb.fdbLabels" . | nindent 4 }}
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kine-fdb.fdbSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kine-fdb.fdbSelectorLabels" . | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: foundationdb
+          image: {{ .Values.fdb.dev.image }}
+          env:
+            - name: FDB_NETWORKING_MODE
+              value: container
+            - name: FDB_PORT
+              value: "4500"
+            - name: FDB_CLUSTER_FILE
+              value: /var/fdb/fdb.cluster
+            - name: FDB_CLUSTER_FILE_CONTENTS
+              value: {{ $clusterFile | quote }}
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              /var/fdb/scripts/fdb.bash &
+              server=$!
+              # Create the database on first start; later starts find it.
+              until fdbcli -C /var/fdb/fdb.cluster --timeout 5 --exec "status minimal" | grep -q "available"; do
+                fdbcli -C /var/fdb/fdb.cluster --timeout 5 --exec "configure new single {{ .Values.fdb.dev.storageEngine }}" >/dev/null 2>&1 || true
+                sleep 2
+              done
+              wait "$server"
+          ports:
+            - name: fdb
+              containerPort: 4500
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "fdbcli -C /var/fdb/fdb.cluster --timeout 3 --exec 'status minimal' | grep -q available"]
+            periodSeconds: 10
+            timeoutSeconds: 8
+          resources:
+            {{- toYaml .Values.fdb.dev.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/fdb/data
+  {{- if .Values.fdb.dev.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.fdb.dev.persistence.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.fdb.dev.persistence.size }}
+  {{- else }}
+      volumes:
+        - name: data
+          emptyDir: {}
+  {{- end }}
+{{- end }}

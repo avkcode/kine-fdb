@@ -1,0 +1,6 @@
+# Files excluded from the packaged chart.
+.DS_Store
+*.swp
+*.bak
+*.tmp
+ci/

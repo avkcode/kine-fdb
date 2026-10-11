@@ -1,0 +1,12 @@
+{{/* Cluster file supplied inline through fdb.clusterFile.value. */}}
+{{- $cf := .Values.fdb.clusterFile }}
+{{- if and $cf.value (not $cf.configMap) (not $cf.secret) (not .Values.fdb.dev.enabled) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kine-fdb.fullname" . }}-cluster-file
+  labels:
+    {{- include "kine-fdb.labels" . | nindent 4 }}
+data:
+  cluster-file: {{ $cf.value | trim | quote }}
+{{- end }}

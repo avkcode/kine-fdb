@@ -1,0 +1,16 @@
+# chart-testing values: an external cluster file, TLS, and a ServiceMonitor.
+fdb:
+  namespace: /clusters/ci
+  clusterFile:
+    value: "ci:abcdef@10.0.0.10:4500:tls"
+  params:
+    timeout: 10s
+  tls:
+    enabled: true
+    secretName: fdb-client-tls
+kine:
+  serverTLS:
+    enabled: true
+    secretName: kine-server-tls
+serviceMonitor:
+  enabled: true
